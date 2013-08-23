@@ -1,16 +1,12 @@
 package graha.replican.paxos;
 
+import java.util.HashMap;
+
 /**
  * <b>about</b>
- *   Paxo node to propagate the Changes
+ *
  * @author graha
- * @created 8/22/13 2:13 PM
+ * @created 8/23/13 4:25 AM
  */
-public class Learner implements Runnable {
-
-
-	@Override
-	public void run() {
-		//To change body of implemented methods use File | Settings | File Templates.
-	}
+public class Learner extends HashMap<String, String> {
 }
