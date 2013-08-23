@@ -4,6 +4,15 @@ import org.apache.log4j.Logger;
 
 import java.io.*;
 
+/**
+ * <b>about</b>
+ * <p/>
+ * Rolling/Weak Checksum for minimize the diff copy (delta/patch sync)
+ *
+ * @author graha
+ * @created 8/21/13 8:59 PM
+ */
+
 public class RollingChecksum {
 	
 	private static final Logger log = Logger.getLogger(RollingChecksum.class);
@@ -118,6 +127,12 @@ public class RollingChecksum {
 		return checksum;
 		
 	}
+
+	/**
+	 * Rolling Checksum calculated here
+	 *
+	 * @return  checksum
+	 */
 	
 	public long weak() {
 		
@@ -169,7 +184,13 @@ public class RollingChecksum {
 		
 		return checksum;
 	}
-	
+
+	/**
+	 *
+	 * Use MD5 to cover Strong part (in case needed)
+	 *
+	 * @return
+	 */
 	public byte[] strong() {
 		if (data.length-index < 1) { // data was smaller than blockSize
 			return MD5.digest(data);

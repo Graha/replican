@@ -17,7 +17,10 @@ import java.util.Map;
  */
 public class Acceptor extends Consumer {
 
+	 // Control to Learner Reader / Writer in here.
 	 Learner learn = new Learner();
+
+
 	/**
 	 * {@inheritDoc}
 	 */
@@ -41,7 +44,13 @@ public class Acceptor extends Consumer {
 		return arguments;
 	}
 
-
+	/**
+	 *
+	 * Pass the control to learner as it clears distribution hurdles
+	 *
+	 * @param text
+	 * @return
+	 */
 	private boolean learning(String text){
 		String[] kv = text.split(Constant.COMMA);
 		if (kv.length == 2) {
@@ -55,6 +64,12 @@ public class Acceptor extends Consumer {
 	}
 
 
+	/**
+	 *
+	 * Sends Promise as result of Proposal
+	 *
+	 * @param key
+	 */
 	private void sendPromise(String key){
 		String prepare = String.format("prepared:%s\n",key);
 		System.out.println(prepare);
@@ -69,6 +84,12 @@ public class Acceptor extends Consumer {
 	}
 
 
+	/**
+	 *
+	 * Sends Accepted Signal back as result of Accept Request
+	 *
+	 * @param key
+	 */
 	private void sendAccepted(String key){
 		String accept = String.format("accepted:%s\n",key);
 		System.out.println(accept);

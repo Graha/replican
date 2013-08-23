@@ -11,21 +11,30 @@ import java.util.concurrent.LinkedBlockingDeque;
 
 /**
  * <b>about</b>
+ *    Simple implementation of paxos' Leader
+ *  (Normally party of Acceptor group)
  *
  * @author graha
  * @created 8/23/13 1:54 AM
  */
 public class Leader extends Producer {
 
-	//Consumer clientProcessor = null;
-
 
 	//TODO load all possible Acceptor from configuration or introduce discovery service
-	String value = new String();
-	String key = new String();
-	boolean _transactionComplete = true; //TODO replaced with TRUE TIME
-	BlockingQueue<Pair> queue = new LinkedBlockingDeque<Pair>();
+	private String value = new String();
+	private String key = new String();
+	private boolean _transactionComplete = true; //TODO replaced with TRUE TIME
+	private BlockingQueue<Pair> queue = new LinkedBlockingDeque<Pair>();   /// Waiting QUEUE
 
+
+	/**
+	 *
+	 * Leader/Proposer Protocol been defined here
+	 *
+	 * @param session
+	 * @param message
+	 * @throws Exception
+	 */
 	@Override
 	public void messageReceived(IoSession session, Object message) throws Exception {
 		String text = UTFCoder.decode(message);
@@ -52,6 +61,21 @@ public class Leader extends Producer {
 		}
 	}
 
+
+
+	private String[] parse (String text){
+		String[] arguments = text.split(Constant.COLON);
+		return arguments;
+	}
+
+	/**
+	 *
+	 * Write the Key-Value pair in to System
+	 *
+	 * @param Pair<Key, Value>
+	 *
+	 * @return
+	 */
 	private boolean write (Pair KV){
 		this.value = String.format("%s,%s", KV.getKey(), KV.getValue());
 		this.sendPrepare(key); // QUORUMS size to be defined Total/2+1
@@ -59,6 +83,14 @@ public class Leader extends Producer {
 		return true;
 	};
 
+	/**
+	 *
+	 * Write the Key-Value pair in to System
+	 *
+	 * @param key
+	 * @param value
+	 * @return
+	 */
 	public boolean write(String key, String value){
 		this.key = key;
 		if (_transactionComplete) {
@@ -76,11 +108,12 @@ public class Leader extends Producer {
 	}
 
 
-	private String[] parse (String text){
-		String[] arguments = text.split(Constant.COLON);
-		return arguments;
-	}
-
+	/**
+	 *
+	 * Sending Prepare Signal to Acceptor
+	 *
+	 * @param key
+	 */
 	private void sendPrepare(String key){
 		String prepare = String.format("prepare:%s\n", key);
 		System.out.println(prepare);
@@ -92,6 +125,13 @@ public class Leader extends Producer {
 	}
 
 
+	/**
+	 *
+	 * Sending Accept Request to Acceptor
+	 *
+	 * @param key
+	 * @param value
+	 */
 	private void sendAccept(String key, Object value){
 		String accept = String.format("accept:%s:%s\n",key, value.toString());
 		System.out.println(accept);

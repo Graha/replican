@@ -2,13 +2,13 @@ package graha.replican.paxos;
 
 /**
  * <b>about</b>
+ *    Dummy hardcoded client
  *
  * @author graha
  * @created 8/23/13 3:21 AM
  */
 public class Client{
-	//Client <-> Leader(P) <-> Acceptor(C)
-
+	//TODO This Dirty code to be re-phrased
 
 	public static void main (String argv[]){
 		Leader lead = new Leader();

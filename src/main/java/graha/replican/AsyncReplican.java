@@ -8,11 +8,14 @@ import java.nio.file.Paths;
 
 /**
  * <b>about</b>
+ * <p/>
+ * Simple implementation for Asynchronous Replication with DirectoryWarcher
  *
  * @author graha
  * @created 8/21/13 8:59 PM
  */
 public class AsyncReplican {
+
 	static void usage() {
 		System.err.println("usage: java AsyncReplican [-r] dir");
 		System.exit(-1);
@@ -31,6 +34,7 @@ public class AsyncReplican {
 			dirArg++;
 		}
 
+		//TODO Configurations to be added
 		//ConfigurationFactory factory = new ConfigurationFactory("config.xml");
 		//Configuration config = factory.getConfiguration();
 

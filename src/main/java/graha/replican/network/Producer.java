@@ -30,22 +30,21 @@ import org.apache.mina.core.session.IoSession;
 import org.apache.mina.transport.socket.nio.NioSocketConnector;
 
 /**
- * An UDP client that just send thousands of small messages to a UdpServer.
- *
+ * Simple TCP based Producer Implementation
+ * <p/>
  * This class is used for performance test purposes. It does nothing at all, but send a message
- * repetitly to a server.
- *
- * 	TCPClient
- *
- * @author <a href="http://mina.apache.org">Apache MINA Project</a>
+ * repetitively to a server.
+ * <p/>
  */
- public class Producer extends IoHandlerAdapter {
-	/** The connector */
+public class Producer extends IoHandlerAdapter {
+
+	// The connector
 	private IoConnector connector;
 
-	/** The session */
+	// The session
 	protected static IoSession session;
 
+	// Any Message been Recieved
 	private boolean received = false;
 
 	public Producer(String host, int port) {
@@ -62,7 +61,7 @@ import org.apache.mina.transport.socket.nio.NioSocketConnector;
 	}
 
 	/**
-	 * Create the UdpClient's instance
+	 * Create the Producer instance with default values
 	 */
 	public Producer() {
 		this("localhost", Consumer.PORT);
@@ -122,39 +121,4 @@ import org.apache.mina.transport.socket.nio.NioSocketConnector;
 	public void sessionOpened(IoSession session) throws Exception {
 	}
 
-
-	/**
-	 * The main method : instanciates a client, and send N messages. We sleep
-	 * between each K messages sent, to avoid the server saturation.
-	 * @param args
-	 * @throws Exception
-	 */
-	public static void main(String[] args) throws Exception {
-		Producer client = new Producer();
-
-		long t0 = System.currentTimeMillis();
-
-		for (int i = 0; i <= 100; i++) {
-
-			session.write(UTFCoder.encode(Long.toString(i)));
-
-			while (client.received == false) {
-				Thread.sleep(1);
-			}
-
-			client.received = false;
-
-			if (i % 10 == 0) {
-				System.out.println("Sent " + i + " messages");
-			}
-		}
-
-		long t1 = System.currentTimeMillis();
-
-		System.out.println("Sent messages delay : " + (t1 - t0));
-
-		Thread.sleep(100000);
-
-		client.connector.dispose();
-	}
 }

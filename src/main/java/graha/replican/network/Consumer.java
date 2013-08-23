@@ -1,6 +1,5 @@
 package graha.replican.network;
 
-
 /*
  *  Licensed to the Apache Software Foundation (ASF) under one
  *  or more contributor license agreements.  See the NOTICE file
@@ -33,25 +32,29 @@ import org.apache.mina.core.session.IoSession;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 
 /**
- * An TCP server used for performance tests.
- *
+ * Simple TCP based Consumer Implementation
+ * <p/>
  * It does nothing fancy, except receiving the messages, and counting the number of
  * received messages.
- *	TcpServer
- * @author <a href="http://mina.apache.org">Apache MINA Project</a>
  */
+
 public class Consumer extends IoHandlerAdapter {
-	/** The listening port (check that it's not already in use) */
+
+	/**
+	 * The listening port (check that it's not already in use)
+	 */
+
 	public static final int PORT = 18567;
 
-	protected 	NioSocketAcceptor acceptor = new NioSocketAcceptor();
+	protected NioSocketAcceptor acceptor = new NioSocketAcceptor();
 
+	/**
+	 * A counter incremented for every recieved message
+	 */
 
-	/** A counter incremented for every recieved message */
 	private AtomicInteger nbReceived = new AtomicInteger(0);
 
-
-	protected NioSocketAcceptor getAcceptor(){
+	protected NioSocketAcceptor getAcceptor() {
 		return acceptor;
 	}
 
@@ -111,10 +114,10 @@ public class Consumer extends IoHandlerAdapter {
 		System.out.println("Session Opened...");
 	}
 
-	public void send(String text){
+	public void send(String text) {
 		try {
 			Map<Long, IoSession> map = acceptor.getManagedSessions();
-			for (Long sessionId : map.keySet()){
+			for (Long sessionId : map.keySet()) {
 				map.get(sessionId).write(UTFCoder.encode(text));
 			}
 		} catch (CharacterCodingException e) {
@@ -123,7 +126,7 @@ public class Consumer extends IoHandlerAdapter {
 	}
 
 
-	public Consumer(){
+	public Consumer() {
 		this(PORT);
 	}
 
