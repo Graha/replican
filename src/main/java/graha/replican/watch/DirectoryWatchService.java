@@ -1,5 +1,7 @@
 package graha.replican.watch;
 
+import graha.replican.async.Replicator;
+
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -25,6 +27,7 @@ public class DirectoryWatchService extends Thread {
 	private final Map<WatchKey,Path> keys;
 	private final boolean recursive;
 	private boolean trace = false;
+	private Replicator replicator = new Replicator();
 
 	@SuppressWarnings("unchecked")
 	static <T> WatchEvent<T> cast(WatchEvent<?> event) {
@@ -100,6 +103,8 @@ public class DirectoryWatchService extends Thread {
 		this.processEvent();
 	}
 
+
+
 	/**
 	 *
 	 * Process all events for keys queued to the watcher
@@ -135,8 +140,18 @@ public class DirectoryWatchService extends Thread {
 				Path name = ev.context();
 				Path child = dir.resolve(name);
 
-				// print out event
-				System.out.format("%s: %s\n", event.kind().name(), child);
+				String instruction = "";
+				try{
+				// Send it out
+					instruction =
+							String.format("%s:%s:%d", event.kind().name(), child, Files.size(child));
+					//TO ignore swp files
+					//String ext[] = child.toString().split(".");
+					//if (ext[ext.length-1]!="swp")
+						replicator.send(instruction);
+				}catch (Exception e){
+					System.out.println ("Replication failed for "+ instruction);
+				}
 
 				// if directory is created, and watching recursively, then
 				// register it and its sub-directories
