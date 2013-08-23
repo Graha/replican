@@ -83,6 +83,19 @@ public class Leader extends Producer {
 		return true;
 	};
 
+
+	/**
+	 *
+	 * Reading by Key for Value from System
+	 *
+	 * @param key
+	 *
+	 * @return
+	 */
+	private boolean read (String key){
+		throw new UnsupportedOperationException("Read Not Supported Yet");
+	};
+
 	/**
 	 *
 	 * Write the Key-Value pair in to System

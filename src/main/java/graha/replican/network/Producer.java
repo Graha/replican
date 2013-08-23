@@ -21,6 +21,8 @@ package graha.replican.network;
  */
 
 import java.net.InetSocketAddress;
+import java.nio.charset.CharacterCodingException;
+import java.util.Map;
 
 import org.apache.mina.core.future.ConnectFuture;
 import org.apache.mina.core.service.IoConnector;
@@ -119,6 +121,14 @@ public class Producer extends IoHandlerAdapter {
 	 */
 	@Override
 	public void sessionOpened(IoSession session) throws Exception {
+	}
+
+	public void send(String text) {
+		try {
+			session.write(UTFCoder.encode(text));
+		} catch (CharacterCodingException e) {
+			System.out.println("Send Failed");
+		}
 	}
 
 }
