@@ -28,6 +28,7 @@ public class DirectoryWatchService extends Thread {
 	private final boolean recursive;
 	private boolean trace = false;
 	private Replicator replicator = new Replicator();
+	private Path path = null;
 
 	@SuppressWarnings("unchecked")
 	static <T> WatchEvent<T> cast(WatchEvent<?> event) {
@@ -85,6 +86,7 @@ public class DirectoryWatchService extends Thread {
 		this.watcher = FileSystems.getDefault().newWatchService();
 		this.keys = new HashMap<WatchKey,Path>();
 		this.recursive = recursive;
+		this.path = dir;
 
 		if (recursive) {
 			System.out.format("Scanning %s ...\n", dir);
@@ -142,17 +144,18 @@ public class DirectoryWatchService extends Thread {
 
 				String instruction = "";
 				try{
-				// Send it out
-					Long size = (!event.kind().name().equals("ENTRY_DELETE"))
-							?Files.size(child):0;
-					instruction =
-							String.format("%s:%s:%d#&#", event.kind().name(), child, size);
+					// Send it out
+					//Long size = (!event.kind().name().equals("ENTRY_DELETE"))
+					//		?Files.size(child):0;
+					//instruction =
+					//		String.format("%s:%s:%d#&#", event.kind().name(), child, size);
 					// event.kind().name(), child
 					//System.out.println("Generated : "+ instruction);
 					//TO ignore swp files
 					//String ext[] = child.toString().split(".");
 					//if (ext[ext.length-1]!="swp")
-						replicator.send(instruction);
+					System.out.println(String.format("%s:%s", event.kind().name(), child));
+					replicator.send(dir.toString(), event.kind().name(), child);
 				}catch (Exception e){
 					e.printStackTrace();
 					System.out.println ("Replication failed for "+ instruction);

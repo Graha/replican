@@ -1,13 +1,14 @@
 package graha.replican.async;
 
+import graha.replican.checksum.RollingChecksum;
 import graha.replican.util.Constant;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.io.*;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -18,53 +19,49 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @created 8/26/13 4:58 PM
  */
 public class Replica {
-	public Logger log = Logger.getLogger(Replica.class);
+	Logger log = LoggerFactory.getLogger(Replica.class);
 	public static AtomicInteger IdGenerator = new AtomicInteger(0);
+	private String location = "/tmp";
 
 	public enum Operations {
-		ENTRY_CREATE,		//source:Size:[File]
-		ENTRY_MODIFY,       //source:CK#1,2,3,4,5:[FileByBlock] **Except last thers of fixed block size
-		ENTRY_DELETE,       //source
-		REPLY_CREATE,       //source:true:CK1,CK2,CK3.....
-		REPLY_MODIFY, 		//source:true:CK1,CK2,CK3.....
+		ENTRY_CREATE,		//Id:file:Size:[File]
+		ENTRY_MODIFY,       //Id:file:CK#1,2,3,4,5:[FileByBlock] **Except last thers of fixed block size
+		ENTRY_DELETE,       //Id:file
+		REPLY_CREATE,       //file:true:CK1,CK2,CK3.....
+		REPLY_MODIFY, 		//file:true:CK1,CK2,CK3.....
 		REPLY_DELETE 		//true
 	};
 
 	//Request
 	private long id;
-	private String source;
+	private String file;
 	private Operations operations;
 	private long size = 0;
-	private List<ByteBuffer> blocks;
+	private List<TextBlock> blocks;
 
 	//Responds
 	private List<Long> checksum;
 	private Boolean isSuccess;
 
-
-
-	public Long getId() {
-		return id;
+	public Replica(String text){
+		this.digest(text);
 	}
 
-	public String getSource() {
-		return source;
+	public Replica(){}
+
+
+	public synchronized boolean buildCreateResponse(List<Long> checksum){
+		//Keep ID, File Same
+		this.operations = Operations.REPLY_CREATE;
+		this.checksum = checksum;
+		return true;
 	}
 
-	public Operations getOperations() {
-		return operations;
-	}
 
-	public List<ByteBuffer> getBlocks() {
-		return blocks;
-	}
-
-	public List<Long> getChecksum() {
-		return checksum;
-	}
-
-	public Boolean getSuccess() {
-		return isSuccess;
+	public synchronized boolean buildModifyResponse(List<TextBlock> changes){
+		this.operations = Operations.REPLY_MODIFY;
+		this.blocks = changes;
+		return true;
 	}
 
 	public synchronized boolean buildRequest(String operation, Path path){
@@ -76,35 +73,87 @@ public class Replica {
 			log.info("Size calculation failed for " + path.toString());
 		}
 		this.operations = Operations.valueOf(operation);
-		this.source = path.toString();
-
-	return true;
+		this.file = path.toString();
+		return true;
 	}
+
+
+	public void digest(String text) {
+		String[] splits = text.split(Constant.COLON);
+		if (splits.length >= 3) {
+			this.id = Long.parseLong(splits[0]);
+			this.operations = Operations.valueOf(splits[1]);
+			this.file = this.normalizePath(this.location, splits[2]);
+			System.out.printf("%s %s %d \n ", file, this.operations.toString(), this.size);
+			if (splits[1].equals("ENTRY_CREATE")) {
+				this.size = Long.parseLong(splits[3]);
+				try {
+					//Create new fill
+					Files.createFile(Paths.get(file));
+					if (this.size > 0) {
+						//Look for file content attached
+						String content[] = text.split(Constant.START_FILE_MSG);
+						if (content.length > 1) {
+							//Fill content if any
+							this.writeFile(this.file, content[1]);
+							System.out.printf("Writing with <<<< %s >>>>\n",
+									content[1]);
+						}
+					}
+				} catch (NoSuchFileException x) {
+					System.out.println(String.format("%s: no such" + " file or directory", file));
+				} catch (DirectoryNotEmptyException x) {
+					System.out.println(String.format("%s not empty", file));
+				} catch (IOException x) {
+					// File permission problems are caught here.
+					x.printStackTrace();
+				}
+
+			} else if (splits[1].equals("ENTRY_DELETE")) {
+				try {
+					Files.delete(Paths.get(file));
+				} catch (NoSuchFileException x) {
+					System.out.println(String.format("%s: no such" + " file or directory", file));
+				} catch (DirectoryNotEmptyException x) {
+					System.out.println(String.format("%s not empty", file));
+				} catch (IOException x) {
+					// File permission problems are caught here.
+					System.out.println(x.getMessage());
+				}
+			} else if (splits[1].equals(Operations.ENTRY_MODIFY.name())) {
+
+			}
+		}
+	}
+
 
 	public String toString(){
 		String instruction = "";
 		String fileContent = "";
 		if (this.operations==Operations.ENTRY_CREATE){
-			//source:Size:[File]
+			//file:Size:[File]
 			try {
-				fileContent = this.readFile(this.source);
+				fileContent = this.readFile(this.file);
 			}catch (Exception e){
 				log.error("Reading file failed for " + e.getMessage());
 			}
-			instruction = String.format("%d:%s:%d:%s", this.id, this.source,
-					this.size, fileContent);
+			instruction = String.format("%d:%s:%s:%d:%s%s", this.id, this.operations, this.file,
+					this.size,Constant.START_FILE_MSG, fileContent);
 		} else if (this.operations==Operations.ENTRY_DELETE){
-			//source
-			instruction = String.format("%d:%s:%d", this.id, this.source,
+			//file
+			instruction = String.format("%d:%s:%s:%d", this.id,this.operations, this.file,
 					this.size);
 		} else if (this.operations==Operations.ENTRY_MODIFY){
-			//source:CK#1,2,3,4,5:[FileByBlock] **Except last thers of fixed block size
+			//file:CK#1,2,3,4,5:[FileByBlock] **Except last thers of fixed block size
 		}
 
-		return instruction+Constant.END_MSG;
+		return instruction + Constant.END_FILE_MSG;
 	}
 
 	//TODO: toByteArray()
+
+
+
 
 	/**
 	 *
@@ -112,8 +161,15 @@ public class Replica {
 	 *
 	 */
 
+
+	public String normalizePath(String location, String file){
+		//TODO recursive to be supported
+		String [] list = file.split(File.separator);
+		return location + File.separator + list[list.length-1];
+	}
+
 	private String readFile( String file ) throws IOException {
-		System.out.println("######## Reading "+ file);
+		//System.out.println("######## Reading "+ file);
 		BufferedReader reader = new BufferedReader( new FileReader(file));
 		String         line = null;
 		StringBuilder  stringBuilder = new StringBuilder();
@@ -128,61 +184,137 @@ public class Replica {
 	}
 
 
+	private void writeFile(String path, String file_content ) throws IOException {
+		PrintWriter out = new PrintWriter(path);
+		out.print(file_content);
+		out.close();
+	}
+
+	/**
+	 *
+	 * Checksum Calculations
+	 *
+	 */
+
+	public List<Long> generateRollingChecksum(String file){
+
+		List<Long> checksums = new ArrayList<Long>();
+
+		int blockSize = Constant.BLOCK_SIZE;
+
+		RollingChecksum checksum = new RollingChecksum(file, blockSize);
+
+		int i=0;
+
+		while (checksum.next()) {
+			long c = checksum.weak();
+			checksums.add(c);
+			i++;
+		}
+		return checksums;
+	}
+
+	public String generateRollingChecksumAsString(String file){
+		List<Long> ck = generateRollingChecksum(file);
+		return Arrays.toString(ck.toArray());
+	}
+
+
+
+
+	public Long getId() {
+		return id;
+	}
+
+	public String getFile() {
+		return file;
+	}
+
+	public Operations getOperations() {
+		return operations;
+	}
+
+	public List<TextBlock> getBlocks() {
+		return blocks;
+	}
+
+
+	public Boolean getSuccess() {
+		return isSuccess;
+	}
+
+
+
 	public void setId(Long id) {
 		this.id = id;
 	}
 
-	public void setSource(String source) {
-		this.source = source;
+	public void setFile(String file) {
+		this.file = file;
 	}
 
 	public void setOperations(Operations operations) {
 		this.operations = operations;
 	}
 
-	public void setBlocks(List<ByteBuffer> blocks) {
+	public void setBlocks(List<TextBlock> blocks) {
 		this.blocks = blocks;
 	}
 
-	public void setChecksum(List<Long> checksum) {
-		this.checksum = checksum;
-	}
 
 	public void setSuccess(Boolean success) {
 		isSuccess = success;
 	}
 
-
-	public void execute(){
-		if(operations.equals(Operations.ENTRY_CREATE)){   //Only File supported
-			if(size == 0){
-				try {
-					Files.createFile(Paths.get(source));
-				} catch (NoSuchFileException x) {
-					log.error(String.format("%s: no such" + " file or directory%n", source));
-				} catch (DirectoryNotEmptyException x) {
-					log.error(String.format("%s not empty%n", source));
-				} catch (IOException x) {
-					// File permission problems are caught here.
-					log.error(x);
-				}
-			}
-		}else if (operations.equals(Operations.ENTRY_DELETE)){
-			try {
-				Files.delete(Paths.get(source));
-			} catch (NoSuchFileException x) {
-				log.error(String.format("%s: no such" + " file or directory%n", source));
-			} catch (DirectoryNotEmptyException x) {
-				log.error(String.format("%s not empty%n", source));
-			} catch (IOException x) {
-				// File permission problems are caught here.
-				log.error(x);
-			}
-		}else if (operations.equals(Operations.ENTRY_MODIFY)){
-
-		}
-
+	public String getLocation() {
+		return location;
 	}
 
+	public void setLocation(String location) {
+		this.location = location;
+	}
+
+	public void setId(long id) {
+		this.id = id;
+	}
+
+	public long getSize() {
+		return size;
+	}
+
+	public void setSize(long size) {
+		this.size = size;
+	}
+
+	public List<Long> getChecksum() {
+		return checksum;
+	}
+
+	public void setChecksum(List<Long> checksum) {
+		this.checksum = checksum;
+	}
 }
 
+
+class TextBlock{
+	int block;
+	String text = "";
+
+	int getBlock() {
+		return block;
+	}
+
+	void setBlock(int block) {
+		this.block = block;
+	}
+
+	String getText() {
+		return text;
+	}
+
+	void setText(String text) {
+		this.text = text;
+	}
+
+
+}

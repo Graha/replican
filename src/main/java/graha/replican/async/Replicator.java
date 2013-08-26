@@ -9,6 +9,8 @@ import org.apache.mina.core.session.IoSession;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.charset.CharacterCodingException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -21,6 +23,8 @@ import java.util.List;
  */
 public class Replicator extends Producer {
 
+
+	ReplicaLedger ledger = new ReplicaLedger();
 
 	public Replicator(){
 		super("localhost", 12122);
@@ -42,57 +46,16 @@ public class Replicator extends Producer {
 	public void messageReceived(IoSession session, Object message) throws Exception {
 		String text = UTFCoder.decode(message);
 		System.out.printf("Recieved : %s \n", text);
-		String[] operation = text.split(Constant.COLON);
-		if (operation.length>=2){
-			if(operation[0].equals("REQ_FILE")){
-				this.send(readFile(operation[1]));
-			}
-			if(operation[0].equals("REQ_CK")){
-				this.send(generateRollingChecksumAsString(readFile(operation[1])));
-			}
-		}
-
-
 	}
 
-	private String readFile( String file ) throws IOException {
-		System.out.println("######## Reading "+ file);
-		BufferedReader reader = new BufferedReader( new FileReader(file));
-		String         line = null;
-		StringBuilder  stringBuilder = new StringBuilder();
-		String         ls = System.getProperty("line.separator");
-
-		while( ( line = reader.readLine() ) != null ) {
-			stringBuilder.append( line );
-			stringBuilder.append( ls );
-		}
-
-		return stringBuilder.toString();
+	public void send(String location, String operation, Path path) {
+		String instruction = null;
+		Replica replica = ReplicaFactory.buildReplica(location);
+		replica.buildRequest(operation, path);
+		instruction = replica.toString();
+		System.out.printf("Looking @ %s %s %s\n", location, operation, path.toString());
+		System.out.println("Generated : "+ instruction);
+		this.send(instruction);
 	}
-
-
-	public List<Long> generateRollingChecksum(String file){
-
-		List<Long> checksums = new ArrayList<Long>();
-
-		int blockSize = Constant.BLOCK_SIZE;
-
-		RollingChecksum checksum = new RollingChecksum(file, blockSize);
-
-		int i=0;
-
-		while (checksum.next()) {
-			long c = checksum.weak();
-			checksums.add(c);
-			i++;
-		}
-		return checksums;
-	}
-
-	public String generateRollingChecksumAsString(String file){
-		List<Long> ck = generateRollingChecksum(file);
-		return Arrays.toString(ck.toArray());
-	}
-
 
 }
