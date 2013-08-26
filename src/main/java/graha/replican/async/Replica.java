@@ -154,7 +154,7 @@ public class Replica {
 
 
 	public void execute(){
-		if(operations.equals("ENTRY_CREATE")){   //Only File supported
+		if(operations.equals(Operations.ENTRY_CREATE)){   //Only File supported
 			if(size == 0){
 				try {
 					Files.createFile(Paths.get(source));
@@ -167,21 +167,19 @@ public class Replica {
 					log.error(x);
 				}
 			}
-		}else if (opArray[0].equals("ENTRY_DELETE")){
+		}else if (operations.equals(Operations.ENTRY_DELETE)){
 			try {
-				System.out.println("Deleting " + path);
-				Files.delete(Paths.get(path));
+				Files.delete(Paths.get(source));
 			} catch (NoSuchFileException x) {
-				System.err.format("%s: no such" + " file or directory%n", path);
+				log.error(String.format("%s: no such" + " file or directory%n", source));
 			} catch (DirectoryNotEmptyException x) {
-				System.err.format("%s not empty%n", path);
+				log.error(String.format("%s not empty%n", source));
 			} catch (IOException x) {
 				// File permission problems are caught here.
-				System.err.println(x);
+				log.error(x);
 			}
-		}else if (opArray[0].equals("ENTRY_MODIFY")){
+		}else if (operations.equals(Operations.ENTRY_MODIFY)){
 
-			this.send(String.format("REQ_CK:%s",source));	//Request for Checksum
 		}
 
 	}
