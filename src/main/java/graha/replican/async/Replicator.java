@@ -1,19 +1,16 @@
 package graha.replican.async;
 
-import graha.replican.checksum.RollingChecksum;
 import graha.replican.network.Producer;
 import graha.replican.network.UTFCoder;
 import graha.replican.util.Constant;
 import org.apache.mina.core.session.IoSession;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.nio.charset.CharacterCodingException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <b>about</b>
@@ -21,13 +18,19 @@ import java.util.List;
  * @author graha
  * @created 8/23/13 6:46 AM
  */
-public class Replicator extends Producer {
+public class Replicator extends Producer implements Runnable {
 
-
-	ReplicaLedger ledger = new ReplicaLedger();
+	private ReplicaLedger ledger = new ReplicaLedger();
+	private BlockingQueue<String> replicas = new LinkedBlockingQueue<String>();
+	private String location = "/tmp";
 
 	public Replicator(){
 		super("localhost", 12122);
+	}
+
+	public Replicator(String location){
+		this();
+		this.setLocation(location);
 	}
 
 	public Replicator(String host, int port){
@@ -45,16 +48,67 @@ public class Replicator extends Producer {
 	@Override
 	public void messageReceived(IoSession session, Object message) throws Exception {
 		String text = UTFCoder.decode(message);
-		System.out.printf("Recieved : %s \n", text);
+		synchronized(message){
+			String[] instructions = text.split(Constant.END_MSG);
+			for (String instruction:instructions){
+				replicas.add(instruction);
+			}
+		}
 	}
+
+
+	public void run() {
+		while (true) {
+			String instruction = null;
+			try{
+				instruction = replicas.poll(1, TimeUnit.SECONDS);
+				if (instruction != null) {
+					Replica replica = ReplicaFactory.buildReplica(this.getLocation(), instruction);  //Auto digested
+					ledger.add(replica.getFile(), replica.getChecksum());
+					List<String> list = replica.generateRollingChecksum();
+					System.out.printf("Checksum for %s is %s\n", replica.getFile(), (Arrays.deepEquals(
+							replica.getChecksum().toArray(),
+							list.toArray()))?"Matched":"Not Matched");
+				}
+			}catch(Exception e){
+				System.out.println(e.getMessage());
+			}
+			instruction = null; //Nullify
+		}
+
+	}
+
+
+	public String getLocation() {
+		return location;
+	}
+
+	public void setLocation(String location) {
+		this.location = location;
+	}
+
+	public ReplicaLedger getLedger() {
+		return ledger;
+	}
+
+	public void setLedger(ReplicaLedger ledger) {
+		this.ledger = ledger;
+	}
+
+	public BlockingQueue<String> getReplicas() {
+		return replicas;
+	}
+
+	public void setReplicas(BlockingQueue<String> replicas) {
+		this.replicas = replicas;
+	}
+
 
 	public void send(String location, String operation, Path path) {
 		String instruction = null;
 		Replica replica = ReplicaFactory.buildReplica(location);
 		replica.buildRequest(operation, path);
 		instruction = replica.toString();
-		System.out.printf("Looking @ %s %s %s\n", location, operation, path.toString());
-		System.out.println("Generated : "+ instruction);
 		this.send(instruction);
 	}
 

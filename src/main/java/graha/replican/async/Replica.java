@@ -40,7 +40,7 @@ public class Replica {
 	private List<TextBlock> blocks;
 
 	//Responds
-	private List<Long> checksum;
+	private List<String> checksum;
 	private Boolean isSuccess;
 
 	public Replica(String text){
@@ -50,7 +50,7 @@ public class Replica {
 	public Replica(){}
 
 
-	public synchronized boolean buildCreateResponse(List<Long> checksum){
+	public synchronized boolean buildCreateResponse(List<String> checksum){
 		//Keep ID, File Same
 		this.operations = Operations.REPLY_CREATE;
 		this.checksum = checksum;
@@ -96,8 +96,8 @@ public class Replica {
 						if (content.length > 1) {
 							//Fill content if any
 							this.writeFile(this.file, content[1]);
-							System.out.printf("Writing with <<<< %s >>>>\n",
-									content[1]);
+							// Build Responds
+							this.buildCreateResponse(this.generateRollingChecksum(content[1]));
 						}
 					}
 				} catch (NoSuchFileException x) {
@@ -122,6 +122,10 @@ public class Replica {
 				}
 			} else if (splits[1].equals(Operations.ENTRY_MODIFY.name())) {
 
+			} else if (splits[1].equals(Operations.REPLY_CREATE.name())) {
+				String list[] =  splits[3].substring(1,  splits[3].length() - 1)
+						.split(Constant.COMMA); // chop off brackets
+				this.checksum = Arrays.asList(list);
 			}
 		}
 	}
@@ -144,10 +148,15 @@ public class Replica {
 			instruction = String.format("%d:%s:%s:%d", this.id,this.operations, this.file,
 					this.size);
 		} else if (this.operations==Operations.ENTRY_MODIFY){
-			//file:CK#1,2,3,4,5:[FileByBlock] **Except last thers of fixed block size
+			//file:CK#1,2,3,4,5:[FileByBlock] **Except last there of fixed block size
+		} else if (this.operations==Operations.REPLY_CREATE){
+			//file:true:CK1,CK2,CK3.....
+			instruction = String.format("%d:%s:%s:%s", this.id,this.operations, this.file,
+					this.checksum.toString());
+			//System.out.println("Checkout : " + instruction);
 		}
 
-		return instruction + Constant.END_FILE_MSG;
+		return instruction + Constant.END_MSG;
 	}
 
 	//TODO: toByteArray()
@@ -196,9 +205,18 @@ public class Replica {
 	 *
 	 */
 
-	public List<Long> generateRollingChecksum(String file){
+	public List<String> generateRollingChecksum(){
+		try{
+			return this.generateRollingChecksum(readFile(this.getFile()));
+		}catch(Exception e){
+			System.out.println("Exception generating checksum");
+		}
+		return null;
+	}
 
-		List<Long> checksums = new ArrayList<Long>();
+	public List<String> generateRollingChecksum(String file){
+
+		List<String> checksums = new ArrayList<String>();
 
 		int blockSize = Constant.BLOCK_SIZE;
 
@@ -208,14 +226,14 @@ public class Replica {
 
 		while (checksum.next()) {
 			long c = checksum.weak();
-			checksums.add(c);
+			checksums.add(Long.toString(c));
 			i++;
 		}
 		return checksums;
 	}
 
 	public String generateRollingChecksumAsString(String file){
-		List<Long> ck = generateRollingChecksum(file);
+		List<String> ck = generateRollingChecksum(file);
 		return Arrays.toString(ck.toArray());
 	}
 
@@ -286,11 +304,11 @@ public class Replica {
 		this.size = size;
 	}
 
-	public List<Long> getChecksum() {
+	public List<String> getChecksum() {
 		return checksum;
 	}
 
-	public void setChecksum(List<Long> checksum) {
+	public void setChecksum(List<String> checksum) {
 		this.checksum = checksum;
 	}
 }

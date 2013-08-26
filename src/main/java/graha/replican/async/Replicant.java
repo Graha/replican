@@ -36,9 +36,8 @@ public class Replicant extends Consumer implements Runnable {
 	@Override
 	public void messageReceived(IoSession session, Object message) throws Exception {
 		String text = UTFCoder.decode(message);
-		System.out.printf("Recieved : %s \n", text);
 		synchronized(message){
-			String[] instructions = text.split(Constant.END_FILE_MSG);
+			String[] instructions = text.split(Constant.END_MSG);
 			for (String instruction:instructions){
 				replicas.add(instruction);
 			}
@@ -58,8 +57,10 @@ public class Replicant extends Consumer implements Runnable {
 			try{
 			instruction = replicas.poll(1, TimeUnit.SECONDS);
 			if (instruction != null) {
-				System.out.println("Processing...." + instruction);
+				//System.out.println("Processing...." + instruction);
 				Replica replica = ReplicaFactory.buildReplica(this.getLocation(), instruction);  //Auto digested
+				System.out.println("Response :" + replica.toString());
+				send(replica.toString());
 			}
 			}catch(Exception e){
 				System.out.println(e.getMessage());

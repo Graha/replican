@@ -27,7 +27,7 @@ public class DirectoryWatchService extends Thread {
 	private final Map<WatchKey,Path> keys;
 	private final boolean recursive;
 	private boolean trace = false;
-	private Replicator replicator = new Replicator();
+	private Replicator replicator = null;
 	private Path path = null;
 
 	@SuppressWarnings("unchecked")
@@ -87,6 +87,8 @@ public class DirectoryWatchService extends Thread {
 		this.keys = new HashMap<WatchKey,Path>();
 		this.recursive = recursive;
 		this.path = dir;
+		this.replicator = new Replicator(dir.toString());
+		new Thread(this.replicator).start();
 
 		if (recursive) {
 			System.out.format("Scanning %s ...\n", dir);
