@@ -7,6 +7,8 @@ import org.apache.mina.core.session.IoSession;
 
 import java.io.*;
 import java.nio.file.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * <b>about</b>
@@ -14,9 +16,10 @@ import java.nio.file.*;
  * @author graha
  * @created 8/23/13 6:45 AM
  */
-public class Replicant extends Consumer {
+public class Replicant extends Consumer implements Runnable {
 
 	private String pathPrefix = "/tmp";
+	private BlockingQueue<Replica> replicas = new LinkedBlockingQueue<Replica>();
 
 	public Replicant(int port){
 		super (port);
@@ -47,6 +50,10 @@ public class Replicant extends Consumer {
 		this.pathPrefix = path;
 	}
 
+	public void run(){
+
+	}
+
 	public void replicateOperation(String op){
 		String[] opArray = op.split(Constant.COLON);
 		String source = new String();  	// Real path
@@ -54,14 +61,16 @@ public class Replicant extends Consumer {
 		String Op = new String();       // Operation
 		long size = 0;                  // File Size
 
-		if (opArray.length <= 0){
+		if (opArray.length < 2){
 			System.err.println("Error in Operation");
 			return;
 		} else {
+			//TODO Cleanup
 			path = normalizePath(opArray[1]);
 			Op = opArray[0];
 			source = opArray[1];
-			size = Long.parseLong(opArray[2]);
+			String[] strSize = opArray[2].split(Constant.END_MSG);
+			size = Long.parseLong(strSize[0]);
 			System.out.println("Opertion : " + Op);
 			System.out.println("    File : " + source + " | " + path);
 			System.out.println("    Size : " + size);
@@ -84,6 +93,7 @@ public class Replicant extends Consumer {
 			}
 		}else if (opArray[0].equals("ENTRY_DELETE")){
 			try {
+				System.out.println("Deleting " + path);
 				Files.delete(Paths.get(path));
 			} catch (NoSuchFileException x) {
 				System.err.format("%s: no such" + " file or directory%n", path);
@@ -112,7 +122,6 @@ public class Replicant extends Consumer {
 		out.print(file_content);
 		out.close();
 	}
-
 
 	public String normalizePath(String path){
 		//TODO recursive to be supported

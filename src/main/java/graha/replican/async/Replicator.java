@@ -75,7 +75,7 @@ public class Replicator extends Producer {
 
 		List<Long> checksums = new ArrayList<Long>();
 
-		int blockSize = 10;
+		int blockSize = Constant.BLOCK_SIZE;
 
 		RollingChecksum checksum = new RollingChecksum(file, blockSize);
 
@@ -93,5 +93,6 @@ public class Replicator extends Producer {
 		List<Long> ck = generateRollingChecksum(file);
 		return Arrays.toString(ck.toArray());
 	}
+
 
 }

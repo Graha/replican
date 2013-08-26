@@ -44,7 +44,7 @@ public class Producer extends IoHandlerAdapter {
 	private IoConnector connector;
 
 	// The session
-	protected static IoSession session;
+	protected  IoSession session;
 
 	// Any Message been Recieved
 	private boolean received = false;
@@ -60,6 +60,7 @@ public class Producer extends IoHandlerAdapter {
 		connFuture.awaitUninterruptibly();
 
 		session = connFuture.getSession();
+
 	}
 
 	/**
@@ -93,6 +94,9 @@ public class Producer extends IoHandlerAdapter {
 	 */
 	@Override
 	public void messageSent(IoSession session, Object message) throws Exception {
+		String text = UTFCoder.decode(message);
+		System.out.printf("Sent Out : %s \n", text);
+
 	}
 
 	/**
