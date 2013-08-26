@@ -143,13 +143,17 @@ public class DirectoryWatchService extends Thread {
 				String instruction = "";
 				try{
 				// Send it out
+					Long size = (!event.kind().name().equals("ENTRY_DELETE"))
+							?Files.size(child):0;
 					instruction =
-							String.format("%s:%s:%d", event.kind().name(), child, Files.size(child));
+							String.format("%s:%s:%d#&#", event.kind().name(), child, size);
+					System.out.println("Generated : "+ instruction);
 					//TO ignore swp files
 					//String ext[] = child.toString().split(".");
 					//if (ext[ext.length-1]!="swp")
 						replicator.send(instruction);
 				}catch (Exception e){
+					e.printStackTrace();
 					System.out.println ("Replication failed for "+ instruction);
 				}
 
