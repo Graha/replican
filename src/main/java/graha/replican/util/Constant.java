@@ -9,7 +9,7 @@ package graha.replican.util;
 public class Constant {
 	public static final String COLON = ":";
 	public static final String COMMA = ",";
-	public static final String END_MSG = "#&#";
+	public static final String END_MSG = "#&!&#";	//For Nagle
 
 	public static int BLOCK_SIZE = 10;
 

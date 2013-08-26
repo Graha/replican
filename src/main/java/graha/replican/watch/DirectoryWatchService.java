@@ -147,7 +147,8 @@ public class DirectoryWatchService extends Thread {
 							?Files.size(child):0;
 					instruction =
 							String.format("%s:%s:%d#&#", event.kind().name(), child, size);
-					System.out.println("Generated : "+ instruction);
+					// event.kind().name(), child
+					//System.out.println("Generated : "+ instruction);
 					//TO ignore swp files
 					//String ext[] = child.toString().split(".");
 					//if (ext[ext.length-1]!="swp")

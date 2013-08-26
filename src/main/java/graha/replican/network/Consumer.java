@@ -139,6 +139,7 @@ public class Consumer extends IoHandlerAdapter {
 
 		try {
 			acceptor.bind(new InetSocketAddress(port));
+			acceptor.getSessionConfig().setTcpNoDelay(true);
 		} catch (IOException e) {
 			throw new RuntimeException("Server Can't be started");
 		}

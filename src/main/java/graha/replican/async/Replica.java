@@ -1,9 +1,15 @@
 package graha.replican.async;
 
 import graha.replican.util.Constant;
+import org.apache.log4j.Logger;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.*;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * <b>about</b>
@@ -12,6 +18,9 @@ import java.util.List;
  * @created 8/26/13 4:58 PM
  */
 public class Replica {
+	public Logger log = Logger.getLogger(Replica.class);
+	public static AtomicInteger IdGenerator = new AtomicInteger(0);
+
 	public enum Operations {
 		ENTRY_CREATE,		//source:Size:[File]
 		ENTRY_MODIFY,       //source:CK#1,2,3,4,5:[FileByBlock] **Except last thers of fixed block size
@@ -22,9 +31,10 @@ public class Replica {
 	};
 
 	//Request
-	private Long id;
+	private long id;
 	private String source;
 	private Operations operations;
+	private long size = 0;
 	private List<ByteBuffer> blocks;
 
 	//Responds
@@ -57,10 +67,66 @@ public class Replica {
 		return isSuccess;
 	}
 
-	public boolean digest(){
+	public synchronized boolean buildRequest(String operation, Path path){
+		this.id = IdGenerator.getAndIncrement();
+		try {
+		this.size = (!operation.equals("ENTRY_DELETE"))
+				? Files.size(path):0;
+		}catch(IOException e){
+			log.info("Size calculation failed for " + path.toString());
+		}
+		this.operations = Operations.valueOf(operation);
+		this.source = path.toString();
 
 	return true;
 	}
+
+	public String toString(){
+		String instruction = "";
+		String fileContent = "";
+		if (this.operations==Operations.ENTRY_CREATE){
+			//source:Size:[File]
+			try {
+				fileContent = this.readFile(this.source);
+			}catch (Exception e){
+				log.error("Reading file failed for " + e.getMessage());
+			}
+			instruction = String.format("%d:%s:%d:%s", this.id, this.source,
+					this.size, fileContent);
+		} else if (this.operations==Operations.ENTRY_DELETE){
+			//source
+			instruction = String.format("%d:%s:%d", this.id, this.source,
+					this.size);
+		} else if (this.operations==Operations.ENTRY_MODIFY){
+			//source:CK#1,2,3,4,5:[FileByBlock] **Except last thers of fixed block size
+		}
+
+		return instruction+Constant.END_MSG;
+	}
+
+	//TODO: toByteArray()
+
+	/**
+	 *
+	 *  File Operations
+	 *
+	 */
+
+	private String readFile( String file ) throws IOException {
+		System.out.println("######## Reading "+ file);
+		BufferedReader reader = new BufferedReader( new FileReader(file));
+		String         line = null;
+		StringBuilder  stringBuilder = new StringBuilder();
+		String         ls = System.getProperty("line.separator");
+
+		while( ( line = reader.readLine() ) != null ) {
+			stringBuilder.append( line );
+			stringBuilder.append( ls );
+		}
+
+		return stringBuilder.toString();
+	}
+
 
 	public void setId(Long id) {
 		this.id = id;
@@ -85,5 +151,40 @@ public class Replica {
 	public void setSuccess(Boolean success) {
 		isSuccess = success;
 	}
+
+
+	public void execute(){
+		if(operations.equals("ENTRY_CREATE")){   //Only File supported
+			if(size == 0){
+				try {
+					Files.createFile(Paths.get(source));
+				} catch (NoSuchFileException x) {
+					log.error(String.format("%s: no such" + " file or directory%n", source));
+				} catch (DirectoryNotEmptyException x) {
+					log.error(String.format("%s not empty%n", source));
+				} catch (IOException x) {
+					// File permission problems are caught here.
+					log.error(x);
+				}
+			}
+		}else if (opArray[0].equals("ENTRY_DELETE")){
+			try {
+				System.out.println("Deleting " + path);
+				Files.delete(Paths.get(path));
+			} catch (NoSuchFileException x) {
+				System.err.format("%s: no such" + " file or directory%n", path);
+			} catch (DirectoryNotEmptyException x) {
+				System.err.format("%s not empty%n", path);
+			} catch (IOException x) {
+				// File permission problems are caught here.
+				System.err.println(x);
+			}
+		}else if (opArray[0].equals("ENTRY_MODIFY")){
+
+			this.send(String.format("REQ_CK:%s",source));	//Request for Checksum
+		}
+
+	}
+
 }
 
