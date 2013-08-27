@@ -1,6 +1,7 @@
 package graha.replican.watch;
 
 import graha.replican.async.Replicator;
+import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -22,6 +23,8 @@ import static java.nio.file.StandardWatchEventKinds.*;
  */
 
 public class DirectoryWatchService extends Thread {
+
+	Logger log = Logger.getLogger(DirectoryWatchService.class);
 
 	private final WatchService watcher;
 	private final Map<WatchKey,Path> keys;
@@ -46,10 +49,10 @@ public class DirectoryWatchService extends Thread {
 		if (trace) {
 			Path prev = keys.get(key);
 			if (prev == null) {
-				System.out.format("register: %s\n", dir);
+				log.info(String.format("register: %s\n", dir));
 			} else {
 				if (!dir.equals(prev)) {
-					System.out.format("update: %s -> %s\n", prev, dir);
+					log.info(String.format("update: %s -> %s\n", prev, dir));
 				}
 			}
 		}
@@ -91,7 +94,7 @@ public class DirectoryWatchService extends Thread {
 		new Thread(this.replicator).start();
 
 		if (recursive) {
-			System.out.format("Scanning %s ...\n", dir);
+			log.info(String.format("Scanning %s ...\n", dir));
 			registerDeep(dir);
 			System.out.println("Done.");
 		} else {

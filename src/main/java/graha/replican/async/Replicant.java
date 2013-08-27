@@ -3,6 +3,7 @@ package graha.replican.async;
 import graha.replican.network.Consumer;
 import graha.replican.network.UTFCoder;
 import graha.replican.util.Constant;
+import org.apache.log4j.Logger;
 import org.apache.mina.core.session.IoSession;
 
 import java.util.concurrent.BlockingQueue;
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeUnit;
  * @created 8/23/13 6:45 AM
  */
 public class Replicant extends Consumer implements Runnable {
+	Logger log = Logger.getLogger(Replicant.class);
 
 	private String location = "/tmp";
 	private ReplicaLedger ledger = new ReplicaLedger();
@@ -75,7 +77,7 @@ public class Replicant extends Consumer implements Runnable {
 				send(replica.toString());
 			}
 			}catch(Exception e){
-				System.out.println(e.getMessage());
+				log.error(e.getMessage());
 			}
 			instruction = null; //Nullify
 		}

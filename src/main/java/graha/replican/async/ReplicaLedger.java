@@ -22,7 +22,7 @@ public class ReplicaLedger {
 		if (ledger.containsKey(file)){
 			return ledger.get(file);
 		} else {
-			log.error(file + " not found");
+			log.warn("Reading all content, in case of inconsistency");
 			return 0L; // Read all again
 		}
 	}

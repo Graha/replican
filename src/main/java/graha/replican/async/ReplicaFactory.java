@@ -1,5 +1,7 @@
 package graha.replican.async;
 
+import org.apache.log4j.Logger;
+
 /**
  * <b>about</b>
  *
@@ -7,6 +9,8 @@ package graha.replican.async;
  * @created 8/26/13 11:42 PM
  */
 public class ReplicaFactory {
+	Logger log = Logger.getLogger(ReplicaFactory.class);
+
 	public static Replica buildReplica(String prefix){
 		Replica replica = new Replica();
 		replica.setLocation(prefix);

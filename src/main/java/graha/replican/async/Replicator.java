@@ -3,11 +3,10 @@ package graha.replican.async;
 import graha.replican.network.Producer;
 import graha.replican.network.UTFCoder;
 import graha.replican.util.Constant;
+import org.apache.log4j.Logger;
 import org.apache.mina.core.session.IoSession;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -19,6 +18,8 @@ import java.util.concurrent.TimeUnit;
  * @created 8/23/13 6:46 AM
  */
 public class Replicator extends Producer implements Runnable {
+
+	Logger log = Logger.getLogger(Replicator.class);
 
 	private ReplicaLedger ledger = new ReplicaLedger();
 	private BlockingQueue<String> replicas = new LinkedBlockingQueue<String>();
@@ -79,15 +80,13 @@ public class Replicator extends Producer implements Runnable {
 					if (replica.getOperations().name().equals("REPLY_CREATE") ||
 							replica.getOperations().name().equals("REPLY_MODIFY")){
 						ledger.add(replica.getFile(), replica.getCheckpoint());
-						 System.out.printf("Loaded %d,%s,%s\n", replica.getId(), replica.getFile(),
-								 replica.getCheckpoint());
-						System.out.printf("Checksum for %s is %s\n", replica.getFile(),
-								(replica.getCheckpoint()==ledger.get(replica.getFile()))?"Matched":"Not Matched");
+						log.info(String.format("local %d, Remote %d\n",
+								replica.getCheckpoint(),ledger.get(replica.getFile())));
 
 					}
 				}
 			}catch(Exception e){
-				System.out.println(e.getMessage());
+				log.error(e.getMessage());
 			}
 			instruction = null; //Nullify
 		}
@@ -132,8 +131,8 @@ public class Replicator extends Producer implements Runnable {
 
 	public void sendDelta(Replica replica) {
 		//Locate delta
-		System.out.printf("Source %d, Replica %d\n",
-				replica.getCheckpoint(), ledger.get(replica.getFile()));
+		log.info(String.format("Source %d, Replica %d\n",
+				replica.getCheckpoint(), ledger.get(replica.getFile())));
 		replica.buildDelta(ledger.get(replica.getFile()));
 	}
 
