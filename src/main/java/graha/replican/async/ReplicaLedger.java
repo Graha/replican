@@ -7,11 +7,17 @@ import java.util.HashMap;
 /**
  * <b>about</b>
  *
+ * 		Leadger to manage replication history across nodes
+ *
  * @author graha
  * @created 8/26/13 9:58 PM
  */
 public class ReplicaLedger {
+
+	//TODO make it persistable
+
 	public Logger log = Logger.getLogger(ReplicaLedger.class);
+
 	HashMap<String, Long> ledger = new HashMap<String, Long>(); //String just for ease of use
 
 	public void add(String file, long lastWritten){

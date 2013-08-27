@@ -5,12 +5,11 @@ import org.apache.log4j.Logger;
 
 import java.io.*;
 import java.nio.file.*;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * <b>about</b>
- *
+ *   Class to manages Replica's CRUD and Wrappers
  * @author graha
  * @created 8/26/13 4:58 PM
  */
@@ -32,7 +31,6 @@ public class Replica {
 	private long id;
 	private String file;
 	private Operations operations;
-	private List<TextBlock> blocks; //NoT implmented yet
 	private String delta;
 	private long checkpoint;
 
@@ -45,6 +43,14 @@ public class Replica {
 
 	public Replica(){}
 
+	/**
+	 *
+	 * Building Response for Create
+	 *
+	 * @param checkpoint
+	 * @return
+	 */
+
 
 	public synchronized boolean buildCreateResponse(long checkpoint){
 		//Keep ID, File Same
@@ -54,12 +60,28 @@ public class Replica {
 	}
 
 
+	/**
+	 *
+	 * Building Response for Modify
+	 *
+	 * @param checkpoint
+	 * @return
+	 */
+
 	public synchronized boolean buildModifyResponse(long checkpoint){
 		this.operations = Operations.REPLY_MODIFY;
 		this.checkpoint = checkpoint;
 		return true;
 	}
 
+
+	/**
+	 *
+	 * Building Response for Delete
+	 *
+	 * @param success
+	 * @return
+	 */
 	public synchronized boolean buildDeleteResponse(boolean success){
 		//Keep ID, File Same
 		this.operations = Operations.REPLY_DELETE;
@@ -68,7 +90,14 @@ public class Replica {
 	}
 
 
-
+	/**
+	 *
+	 * Building Request object for Replica
+	 *
+	 * @param operation
+	 * @param path
+	 * @return
+	 */
 	public synchronized boolean buildRequest(String operation, Path path){
 		this.id = IdGenerator.getAndIncrement();
 		try {
@@ -82,6 +111,12 @@ public class Replica {
 		return true;
 	}
 
+	/**
+	 *
+	 * Replication instruction digester
+	 * @param text
+	 *
+	 */
 
 	public void digest(String text) {
 		String[] splits = text.split(Constant.COLON);
@@ -159,6 +194,12 @@ public class Replica {
 		}
 	}
 
+	/**
+	 *
+	 * Building instruction out of Replica object
+	 *
+	 * @return
+	 */
 
 	public String toString(){
 		String instruction = "";
@@ -197,18 +238,31 @@ public class Replica {
 
 
 
+	///////// File Operations
+
+
 	/**
 	 *
-	 *  File Operations
+	 * Normalize path to convert between remote and local replica folders
 	 *
+	 * @param location
+	 * @param file
+	 * @return
 	 */
-
-
 	public String normalizePath(String location, String file){
 		//TODO recursive to be supported
 		String [] list = file.split(File.separator);
 		return location + File.separator + list[list.length-1];
 	}
+
+	/**
+	 *
+	 * Reading whole file for creation time
+	 *
+	 * @param file
+	 * @return
+	 * @throws IOException
+	 */
 
 	private String readFile( String file ) throws IOException {
 		//System.out.println("######## Reading "+ file);
@@ -224,6 +278,16 @@ public class Replica {
 
 		return stringBuilder.toString();
 	}
+
+	/**
+	 *
+	 * Reading only delta changes
+	 *
+	 * @param file
+	 * @param checkpoint
+	 * @return
+	 * @throws IOException
+	 */
 
 	private String readFileDelta( String file, long checkpoint ) throws IOException {
 		//Byte stream handling
@@ -242,12 +306,30 @@ public class Replica {
 	}
 
 
+	/**
+	 *
+	 * write the whole file
+	 *
+	 * @param path
+	 * @param file_content
+	 * @throws IOException
+	 */
+
 	private void writeFile(String path, String file_content ) throws IOException {
 		PrintWriter out = new PrintWriter(path);
 		out.print(file_content);
 		out.close();
 	}
 
+
+	/**
+	 *
+	 * append only aggregation
+	 *
+	 * @param path
+	 * @param file_content
+	 * @throws IOException
+	 */
 	private void writeFileDelta(String path, String file_content) throws IOException {
 		RandomAccessFile reader = new RandomAccessFile(new File(path.toString()), "rw");
 		String         line = null;
@@ -271,10 +353,6 @@ public class Replica {
 		return operations;
 	}
 
-	public List<TextBlock> getBlocks() {
-		return blocks;
-	}
-
 
 	public Boolean getSuccess() {
 		return isSuccess;
@@ -292,10 +370,6 @@ public class Replica {
 
 	public void setOperations(Operations operations) {
 		this.operations = operations;
-	}
-
-	public void setBlocks(List<TextBlock> blocks) {
-		this.blocks = blocks;
 	}
 
 
@@ -340,28 +414,4 @@ public class Replica {
 			log.warn("Delta Blocking unsuccessful");
 		}
 	}
-}
-
-
-class TextBlock{
-	int block;
-	String text = "";
-
-	int getBlock() {
-		return block;
-	}
-
-	void setBlock(int block) {
-		this.block = block;
-	}
-
-	String getText() {
-		return text;
-	}
-
-	void setText(String text) {
-		this.text = text;
-	}
-
-
 }

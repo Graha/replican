@@ -14,6 +14,8 @@ import java.nio.file.Paths;
  * @author graha
  * @created 8/21/13 8:59 PM
  */
+
+@Deprecated
 public class AsyncReplican {
 
 	static void usage() {

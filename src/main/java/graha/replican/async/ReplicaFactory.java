@@ -4,6 +4,7 @@ import org.apache.log4j.Logger;
 
 /**
  * <b>about</b>
+ *		Factory for replica object creation
  *
  * @author graha
  * @created 8/26/13 11:42 PM

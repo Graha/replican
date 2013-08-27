@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
  * @author graha
  * @created 8/23/13 6:45 AM
  */
+
 public class Replicant extends Consumer implements Runnable {
 	Logger log = Logger.getLogger(Replicant.class);
 
