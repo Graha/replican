@@ -1,6 +1,7 @@
 package graha.replican.watch;
 
 import graha.replican.async.Replicator;
+import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -23,11 +24,14 @@ import static java.nio.file.StandardWatchEventKinds.*;
 
 public class DirectoryWatchService extends Thread {
 
+	Logger log = Logger.getLogger(DirectoryWatchService.class);
+
 	private final WatchService watcher;
 	private final Map<WatchKey,Path> keys;
 	private final boolean recursive;
 	private boolean trace = false;
-	private Replicator replicator = new Replicator();
+	private Replicator replicator = null;
+	private Path path = null;
 
 	@SuppressWarnings("unchecked")
 	static <T> WatchEvent<T> cast(WatchEvent<?> event) {
@@ -45,10 +49,10 @@ public class DirectoryWatchService extends Thread {
 		if (trace) {
 			Path prev = keys.get(key);
 			if (prev == null) {
-				System.out.format("register: %s\n", dir);
+				log.info(String.format("register: %s\n", dir));
 			} else {
 				if (!dir.equals(prev)) {
-					System.out.format("update: %s -> %s\n", prev, dir);
+					log.info(String.format("update: %s -> %s\n", prev, dir));
 				}
 			}
 		}
@@ -85,9 +89,12 @@ public class DirectoryWatchService extends Thread {
 		this.watcher = FileSystems.getDefault().newWatchService();
 		this.keys = new HashMap<WatchKey,Path>();
 		this.recursive = recursive;
+		this.path = dir;
+		this.replicator = new Replicator(dir.toString());
+		new Thread(this.replicator).start();
 
 		if (recursive) {
-			System.out.format("Scanning %s ...\n", dir);
+			log.info(String.format("Scanning %s ...\n", dir));
 			registerDeep(dir);
 			System.out.println("Done.");
 		} else {
@@ -142,17 +149,18 @@ public class DirectoryWatchService extends Thread {
 
 				String instruction = "";
 				try{
-				// Send it out
-					Long size = (!event.kind().name().equals("ENTRY_DELETE"))
-							?Files.size(child):0;
-					instruction =
-							String.format("%s:%s:%d#&#", event.kind().name(), child, size);
+					// Send it out
+					//Long size = (!event.kind().name().equals("ENTRY_DELETE"))
+					//		?Files.size(child):0;
+					//instruction =
+					//		String.format("%s:%s:%d#&#", event.kind().name(), child, size);
 					// event.kind().name(), child
 					//System.out.println("Generated : "+ instruction);
 					//TO ignore swp files
 					//String ext[] = child.toString().split(".");
 					//if (ext[ext.length-1]!="swp")
-						replicator.send(instruction);
+					System.out.println(String.format("%s:%s", event.kind().name(), child));
+					replicator.send(dir.toString(), event.kind().name(), child);
 				}catch (Exception e){
 					e.printStackTrace();
 					System.out.println ("Replication failed for "+ instruction);
@@ -182,5 +190,33 @@ public class DirectoryWatchService extends Thread {
 				}
 			}
 		}
+	}
+
+
+	static void usage() {
+		System.err.println("usage: java AsyncReplican [-r] dir");
+		System.exit(-1);
+	}
+
+	public static void main(String[] args) throws IOException {
+		// parse arguments
+		if (args.length == 0 || args.length > 2)
+			usage();
+		boolean recursive = false;
+		int dirArg = 0;
+		if (args[0].equals("-r")) {
+			if (args.length < 2)
+				usage();
+			recursive = true;
+			dirArg++;
+		}
+
+		//TODO Configurations to be added
+		//ConfigurationFactory factory = new ConfigurationFactory("config.xml");
+		//Configuration config = factory.getConfiguration();
+
+		// register directory and process its events
+		Path dir = Paths.get(args[dirArg]);
+		new DirectoryWatchService(dir, recursive).start();
 	}
 }

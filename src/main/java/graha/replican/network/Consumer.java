@@ -20,16 +20,17 @@ package graha.replican.network;
  *
  */
 
+import org.apache.log4j.Logger;
+import org.apache.mina.core.service.IoHandlerAdapter;
+import org.apache.mina.core.session.IdleStatus;
+import org.apache.mina.core.session.IoSession;
+import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.CharacterCodingException;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.mina.core.service.IoHandlerAdapter;
-import org.apache.mina.core.session.IdleStatus;
-import org.apache.mina.core.session.IoSession;
-import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 
 /**
  * Simple TCP based Consumer Implementation
@@ -39,6 +40,7 @@ import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
  */
 
 public class Consumer extends IoHandlerAdapter {
+	Logger log = Logger.getLogger(Consumer.class);
 
 	/**
 	 * The listening port (check that it's not already in use)
@@ -73,7 +75,6 @@ public class Consumer extends IoHandlerAdapter {
 	@Override
 	public void messageReceived(IoSession session, Object message) throws Exception {
 
-		System.out.println(UTFCoder.decode(message));
 		// If we want to test the write operation, uncomment this line
 		session.write(message);
 	}
@@ -83,10 +84,10 @@ public class Consumer extends IoHandlerAdapter {
 	 */
 	@Override
 	public void sessionClosed(IoSession session) throws Exception {
-		System.out.println("Session closed...");
+		log.info("Session closed...");
 
 		// Reinitialize the counter and expose the number of received messages
-		System.out.println("Total message received : " + nbReceived.get());
+		log.info("Total message received : " + nbReceived.get());
 		nbReceived.set(0);
 	}
 
@@ -95,7 +96,7 @@ public class Consumer extends IoHandlerAdapter {
 	 */
 	@Override
 	public void sessionCreated(IoSession session) throws Exception {
-		System.out.println("Session created...");
+		log.info("Session created...");
 	}
 
 	/**
@@ -103,7 +104,7 @@ public class Consumer extends IoHandlerAdapter {
 	 */
 	@Override
 	public void sessionIdle(IoSession session, IdleStatus status) throws Exception {
-		System.out.println("Session idle...");
+		log.info("Session idle...");
 	}
 
 	/**
@@ -111,7 +112,7 @@ public class Consumer extends IoHandlerAdapter {
 	 */
 	@Override
 	public void sessionOpened(IoSession session) throws Exception {
-		System.out.println("Session Opened...");
+		log.info("Session Opened...");
 	}
 
 	public void send(String text) {
@@ -144,7 +145,7 @@ public class Consumer extends IoHandlerAdapter {
 			throw new RuntimeException("Server Can't be started");
 		}
 
-		System.out.println("Server started @ " + port);
+		log.info("Server started @ " + port);
 	}
 
 
