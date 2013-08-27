@@ -1,26 +1,13 @@
 replican
 ========
 
-    Paxo based synchronous replicaiton management. Google Spanner based Key-Value Distributed Datastore. 
-
-
-to test possible operations,
-
-$ mvn clean package
-
-$ mvn exec:java -Dexec.mainClass="graha.replican.paxos.Acceptor" (in one terminal)
-
-$ mvn exec:java -Dexec.mainClass="graha.replican.paxos.Client" (on another terminal)
-
-
-
-    rsync type replication implementation
+    rsync like replication implementation
     
 $ mvn clean package
 
 $ mvn exec:java -Dexec.mainClass="graha.replican.async.Replicant" -Dexec.args="remote" //argument is folder name
  
-$ mvn exec:java -Dexec.mainClass="graha.replican.AsyncReplican" -Dexec.args="local"    //argument is folder name
+$ mvn exec:java -Dexec.mainClass="graha.replican.watch.DirectoryWatchService" -Dexec.args="local" //argument is folder name
 
 
 Create a file,
