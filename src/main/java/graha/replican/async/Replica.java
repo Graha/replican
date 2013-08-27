@@ -1,5 +1,6 @@
 package graha.replican.async;
 
+import graha.replican.checksum.MD5;
 import graha.replican.checksum.RollingChecksum;
 import graha.replican.util.Constant;
 import org.slf4j.Logger;
@@ -37,7 +38,9 @@ public class Replica {
 	private String file;
 	private Operations operations;
 	private long size = 0;
-	private List<TextBlock> blocks;
+	private List<TextBlock> blocks; //NoT implmented yet
+	private String delta;
+	private int deltaBlock;
 
 	//Responds
 	private List<String> checksum;
@@ -58,11 +61,20 @@ public class Replica {
 	}
 
 
-	public synchronized boolean buildModifyResponse(List<TextBlock> changes){
+	public synchronized boolean buildModifyResponse(List<String> checksum){
 		this.operations = Operations.REPLY_MODIFY;
-		this.blocks = changes;
+		this.checksum = checksum;
 		return true;
 	}
+
+	public synchronized boolean buildDeleteResponse(boolean success){
+		//Keep ID, File Same
+		this.operations = Operations.REPLY_DELETE;
+		this.setSuccess(success);
+		return true;
+	}
+
+
 
 	public synchronized boolean buildRequest(String operation, Path path){
 		this.id = IdGenerator.getAndIncrement();
@@ -83,13 +95,14 @@ public class Replica {
 		if (splits.length >= 3) {
 			this.id = Long.parseLong(splits[0]);
 			this.operations = Operations.valueOf(splits[1]);
+			System.out.println("Working on : "+ this.operations.name());
 			this.file = this.normalizePath(this.location, splits[2]);
-			System.out.printf("%s %s %d \n ", file, this.operations.toString(), this.size);
 			if (splits[1].equals("ENTRY_CREATE")) {
 				this.size = Long.parseLong(splits[3]);
 				try {
 					//Create new fill
 					Files.createFile(Paths.get(file));
+					System.out.println("Created " + file);
 					if (this.size > 0) {
 						//Look for file content attached
 						String content[] = text.split(Constant.START_FILE_MSG);
@@ -97,7 +110,7 @@ public class Replica {
 							//Fill content if any
 							this.writeFile(this.file, content[1]);
 							// Build Responds
-							this.buildCreateResponse(this.generateRollingChecksum(content[1]));
+							this.buildCreateResponse(this.generateMD5Checksum());
 						}
 					}
 				} catch (NoSuchFileException x) {
@@ -112,6 +125,7 @@ public class Replica {
 			} else if (splits[1].equals("ENTRY_DELETE")) {
 				try {
 					Files.delete(Paths.get(file));
+					this.buildDeleteResponse(true);
 				} catch (NoSuchFileException x) {
 					System.out.println(String.format("%s: no such" + " file or directory", file));
 				} catch (DirectoryNotEmptyException x) {
@@ -120,9 +134,32 @@ public class Replica {
 					// File permission problems are caught here.
 					System.out.println(x.getMessage());
 				}
-			} else if (splits[1].equals(Operations.ENTRY_MODIFY.name())) {
+			} else if (splits[1].equals("ENTRY_MODIFY")) {
+				//file:DELTA:[FileByBlock] **Except last there of fixed block size
+				this.setDeltaBlock(Integer.parseInt(splits[3]));
+				try{
+				if (this.deltaBlock > 0) {
+					//Look for file content attached
+					String content[] = text.split(Constant.START_FILE_MSG);
+					if (content.length > 1) {
+						//Fill content if any
+						this.setDelta(content[1]);
+						this.writeFileDelta(this.file, delta);
+						// Build Responds
+						this.buildModifyResponse(this.generateMD5Checksum());
+					}
+				}
+			} catch (NoSuchFileException x) {
+				System.out.println(String.format("%s: no such" + " file or directory", file));
+			} catch (DirectoryNotEmptyException x) {
+				System.out.println(String.format("%s not empty", file));
+			} catch (IOException x) {
+				// File permission problems are caught here.
+				x.printStackTrace();
+			}
 
-			} else if (splits[1].equals(Operations.REPLY_CREATE.name())) {
+		} else if (splits[1].equals(Operations.REPLY_CREATE.name()) ||
+					splits[1].equals(Operations.REPLY_MODIFY.name())) {
 				String list[] =  splits[3].substring(1,  splits[3].length() - 1)
 						.split(Constant.COMMA); // chop off brackets
 				this.checksum = Arrays.asList(list);
@@ -148,12 +185,16 @@ public class Replica {
 			instruction = String.format("%d:%s:%s:%d", this.id,this.operations, this.file,
 					this.size);
 		} else if (this.operations==Operations.ENTRY_MODIFY){
-			//file:CK#1,2,3,4,5:[FileByBlock] **Except last there of fixed block size
-		} else if (this.operations==Operations.REPLY_CREATE){
+			//file:DELTA:[FileByBlock] **Except last there of fixed block size
+			instruction = String.format("%d:%s:%s:%d:%s%s", this.id, this.operations, this.file,
+					this.deltaBlock,Constant.START_FILE_MSG, this.getDelta());
+			System.out.println("Checkout : " + instruction);
+		} else if (this.operations==Operations.REPLY_CREATE ||
+				this.operations==Operations.REPLY_MODIFY){
 			//file:true:CK1,CK2,CK3.....
 			instruction = String.format("%d:%s:%s:%s", this.id,this.operations, this.file,
 					this.checksum.toString());
-			//System.out.println("Checkout : " + instruction);
+			System.out.println("Checkout : " + instruction);
 		}
 
 		return instruction + Constant.END_MSG;
@@ -192,6 +233,30 @@ public class Replica {
 		return stringBuilder.toString();
 	}
 
+	private String readFileDelta( String file, int frmBlock ) throws IOException {
+		//Byte stream handling
+		BufferedReader reader = new BufferedReader( new FileReader(file));
+		String         line = null;
+		StringBuilder  stringBuilder = new StringBuilder();
+		String         ls = System.getProperty("line.separator");
+
+		int i=0, block=0;
+
+		while( ( line = reader.readLine() ) != null ) {
+			if (block >= frmBlock){ // Making delta block here
+				stringBuilder.append( line );
+				stringBuilder.append( ls );
+			}
+			i++;
+			if (i>=Constant.BLOCK_SIZE){
+				block++;
+				i=0; //Reset counter
+			}
+		}
+		System.out.println("Found Delta : \n" +stringBuilder.toString());
+		return stringBuilder.toString();
+	}
+
 
 	private void writeFile(String path, String file_content ) throws IOException {
 		PrintWriter out = new PrintWriter(path);
@@ -199,45 +264,77 @@ public class Replica {
 		out.close();
 	}
 
+	private void writeFileDelta(String path, String file_content) throws IOException {
+		RandomAccessFile reader = new RandomAccessFile(new File(path.toString()), "rw");
+		String         line = null;
+		String         ls = System.getProperty("line.separator");
+
+		int i=0, block=0;
+
+		while((line = reader.readLine() ) != null ) {
+			i++;
+			if (i>=Constant.BLOCK_SIZE*this.deltaBlock) {
+				//reader.writeChars(file_content);
+				//System.out.printf("Pointer L#%d, B#%d, Line %s\n", i, reader.getFilePointer(), line);
+				break;
+			}
+		}
+		reader.seek(reader.getFilePointer());
+		reader.writeChars(file_content);
+		reader.close();
+	}
+
+
 	/**
 	 *
 	 * Checksum Calculations
 	 *
 	 */
 
-	public List<String> generateRollingChecksum(){
+
+	public List<String> generateMD5Checksum(){
 		try{
-			return this.generateRollingChecksum(readFile(this.getFile()));
+			return this.generateMD5Checksum(this.getFile());
 		}catch(Exception e){
 			System.out.println("Exception generating checksum");
 		}
 		return null;
 	}
 
-	public List<String> generateRollingChecksum(String file){
 
+	public List<String> generateMD5Checksum(String file){
+
+		try {
+		System.out.printf("Building Checksum for %s of size %d\n", file, Files.size(Paths.get(file)));
+		}catch(Exception e){
+
+		}
 		List<String> checksums = new ArrayList<String>();
-
-		int blockSize = Constant.BLOCK_SIZE;
-
-		RollingChecksum checksum = new RollingChecksum(file, blockSize);
+		try{
+		BufferedReader reader = new BufferedReader( new FileReader(file));
+		String         line = null;
+		StringBuilder  stringBuilder = new StringBuilder();
+		String         ls = System.getProperty("line.separator");
 
 		int i=0;
-
-		while (checksum.next()) {
-			long c = checksum.weak();
-			checksums.add(Long.toString(c));
+		while( ( line = reader.readLine() ) != null ) {
+			stringBuilder.append( line );
+			stringBuilder.append( ls );
 			i++;
+			if (i>=Constant.BLOCK_SIZE){
+				checksums.add(MD5.digest(stringBuilder.toString()));
+				stringBuilder.setLength(0); //Reset stringBuilder
+				i=0; //Reset counter
+			}
 		}
+			checksums.add(MD5.digest(stringBuilder.toString())); // Remaining lines to be checksum
+			reader.close();
+		}catch(Exception e){
+			System.out.println("Error reading file " + e.getMessage());
+		}
+
 		return checksums;
 	}
-
-	public String generateRollingChecksumAsString(String file){
-		List<String> ck = generateRollingChecksum(file);
-		return Arrays.toString(ck.toArray());
-	}
-
-
 
 
 	public Long getId() {
@@ -310,6 +407,31 @@ public class Replica {
 
 	public void setChecksum(List<String> checksum) {
 		this.checksum = checksum;
+	}
+
+	public String getDelta() {
+		return delta;
+	}
+
+	public void setDelta(String delta) {
+		this.delta = delta;
+	}
+
+	public int getDeltaBlock() {
+		return deltaBlock;
+	}
+
+	public void setDeltaBlock(int deltaBlock) {
+		this.deltaBlock = deltaBlock;
+	}
+
+	public void buildDelta(int deltaBlock){
+		try {
+			this.setDeltaBlock(deltaBlock);
+			this.setDelta(readFileDelta(this.file, deltaBlock));
+		}catch(Exception e){
+			System.err.println("Delta Blocking unsuccessful");
+		}
 	}
 }
 

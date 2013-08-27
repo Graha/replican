@@ -20,6 +20,8 @@ public class Replicant extends Consumer implements Runnable {
 	private String location = "/tmp";
 	private ReplicaLedger ledger = new ReplicaLedger();
 	private BlockingQueue<String> replicas = new LinkedBlockingQueue<String>();
+	private String incomplete = "";
+
 
 	public Replicant(int port){
 		super (port);
@@ -38,9 +40,19 @@ public class Replicant extends Consumer implements Runnable {
 		String text = UTFCoder.decode(message);
 		synchronized(message){
 			String[] instructions = text.split(Constant.END_MSG);
-			for (String instruction:instructions){
-				replicas.add(instruction);
+			int start=0, end=instructions.length;
+
+			if(!text.endsWith(Constant.END_MSG)){
+				end = instructions.length-1;
+				incomplete = incomplete + instructions[end];
+			}else if(incomplete.length()>0){
+				start=1;
+				replicas.add(incomplete+instructions[0]);
+				incomplete="";
 			}
+
+			for(int i=start; i<end;i++)
+				replicas.add(instructions[i]);
 		}
 	}
 
@@ -57,7 +69,7 @@ public class Replicant extends Consumer implements Runnable {
 			try{
 			instruction = replicas.poll(1, TimeUnit.SECONDS);
 			if (instruction != null) {
-				//System.out.println("Processing...." + instruction);
+				System.out.println("Processing...." + instruction);
 				Replica replica = ReplicaFactory.buildReplica(this.getLocation(), instruction);  //Auto digested
 				System.out.println("Response :" + replica.toString());
 				send(replica.toString());

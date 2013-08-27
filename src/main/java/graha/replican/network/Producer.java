@@ -94,8 +94,8 @@ public class Producer extends IoHandlerAdapter {
 	 */
 	@Override
 	public void messageSent(IoSession session, Object message) throws Exception {
-		String text = UTFCoder.decode(message);
-		System.out.printf("Sent : %s \n", text);
+		//String text = UTFCoder.decode(message);
+		//System.out.printf("Sent : %s \n", text);
 
 	}
 

@@ -18,10 +18,11 @@ public class ReplicaLedger {
 
 	public void add(String file, List<String> checksum){
 		ledger.put(file, checksum);
+		log.info ("Updated " + file);
 	}
 
 	public List<String> get(String file){
-		if (!ledger.containsKey(file)){
+		if (ledger.containsKey(file)){
 			return ledger.get(file);
 		} else {
 			log.error(file + " not found");
