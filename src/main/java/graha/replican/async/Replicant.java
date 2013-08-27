@@ -69,9 +69,9 @@ public class Replicant extends Consumer implements Runnable {
 			try{
 			instruction = replicas.poll(1, TimeUnit.SECONDS);
 			if (instruction != null) {
-				System.out.println("Processing...." + instruction);
+				//System.out.println("Processing...." + instruction);
 				Replica replica = ReplicaFactory.buildReplica(this.getLocation(), instruction);  //Auto digested
-				System.out.println("Response :" + replica.toString());
+				//System.out.println("Response :" + replica.toString());
 				send(replica.toString());
 			}
 			}catch(Exception e){

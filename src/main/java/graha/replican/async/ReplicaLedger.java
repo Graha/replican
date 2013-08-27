@@ -2,9 +2,7 @@ package graha.replican.async;
 
 import org.apache.log4j.Logger;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 
 /**
  * <b>about</b>
@@ -14,19 +12,18 @@ import java.util.List;
  */
 public class ReplicaLedger {
 	public Logger log = Logger.getLogger(ReplicaLedger.class);
-	HashMap<String,List<String>> ledger = new HashMap<String, List<String>>(); //String just for ease of use
+	HashMap<String, Long> ledger = new HashMap<String, Long>(); //String just for ease of use
 
-	public void add(String file, List<String> checksum){
-		ledger.put(file, checksum);
-		log.info ("Updated " + file);
+	public void add(String file, long lastWritten){
+		ledger.put(file, lastWritten);
 	}
 
-	public List<String> get(String file){
+	public Long get(String file){
 		if (ledger.containsKey(file)){
 			return ledger.get(file);
 		} else {
 			log.error(file + " not found");
-			return new ArrayList<String>();
+			return 0L; // Read all again
 		}
 	}
 }

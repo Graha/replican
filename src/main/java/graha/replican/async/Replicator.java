@@ -1,6 +1,5 @@
 package graha.replican.async;
 
-import graha.replican.checksum.MD5;
 import graha.replican.network.Producer;
 import graha.replican.network.UTFCoder;
 import graha.replican.util.Constant;
@@ -8,7 +7,6 @@ import org.apache.mina.core.session.IoSession;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -80,14 +78,11 @@ public class Replicator extends Producer implements Runnable {
 					Replica replica = ReplicaFactory.buildReplica(this.getLocation(), instruction);  //Auto digested
 					if (replica.getOperations().name().equals("REPLY_CREATE") ||
 							replica.getOperations().name().equals("REPLY_MODIFY")){
-						ledger.add(replica.getFile(), replica.getChecksum());
+						ledger.add(replica.getFile(), replica.getCheckpoint());
 						 System.out.printf("Loaded %d,%s,%s\n", replica.getId(), replica.getFile(),
-								 replica.getChecksum());
-						List<String> list = replica.generateMD5Checksum();
-						if (!replica.getOperations().name().equals("REPLY_MODIFY"))
-							System.out.printf("Checksum for %s is %s\n", replica.getFile(), (MD5.compareChecksum(
-								ledger.get(replica.getFile()),
-								list))?"Matched":"Not Matched");
+								 replica.getCheckpoint());
+						System.out.printf("Checksum for %s is %s\n", replica.getFile(),
+								(replica.getCheckpoint()==ledger.get(replica.getFile()))?"Matched":"Not Matched");
 
 					}
 				}
@@ -136,14 +131,10 @@ public class Replicator extends Producer implements Runnable {
 	}
 
 	public void sendDelta(Replica replica) {
-		List<String> list = MD5.generateMD5Checksum(replica.getFile());
-		List<Integer> delta = new ArrayList<Integer>();
 		//Locate delta
-		System.out.printf("Checksum for %s is %s\n", replica.getFile(), (MD5.compareChecksum(
-				list, ledger.get(replica.getFile()),
-				delta))?"Matched":"Not Matched");
-		//ledger.add(replica.getFile(), list);
-		replica.buildDelta(delta.get(0));
+		System.out.printf("Source %d, Replica %d\n",
+				replica.getCheckpoint(), ledger.get(replica.getFile()));
+		replica.buildDelta(ledger.get(replica.getFile()));
 	}
 
 
