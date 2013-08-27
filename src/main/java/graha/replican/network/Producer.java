@@ -24,6 +24,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.CharacterCodingException;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
 import org.apache.mina.core.future.ConnectFuture;
 import org.apache.mina.core.service.IoConnector;
 import org.apache.mina.core.service.IoHandlerAdapter;
@@ -39,6 +40,7 @@ import org.apache.mina.transport.socket.nio.NioSocketConnector;
  * <p/>
  */
 public class Producer extends IoHandlerAdapter {
+	Logger log = Logger.getLogger(Producer.class);
 
 	// The connector
 	private IoConnector connector;
@@ -94,8 +96,6 @@ public class Producer extends IoHandlerAdapter {
 	 */
 	@Override
 	public void messageSent(IoSession session, Object message) throws Exception {
-		String text = UTFCoder.decode(message);
-		System.out.printf("Sent Out : %s \n", text);
 
 	}
 
@@ -131,7 +131,7 @@ public class Producer extends IoHandlerAdapter {
 		try {
 			session.write(UTFCoder.encode(text));
 		} catch (CharacterCodingException e) {
-			System.out.println("Send Failed");
+			log.info("Send Failed");
 		}
 	}
 

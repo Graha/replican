@@ -1,17 +1,15 @@
 package graha.replican.async;
 
-import graha.replican.checksum.RollingChecksum;
 import graha.replican.network.Producer;
 import graha.replican.network.UTFCoder;
 import graha.replican.util.Constant;
+import org.apache.log4j.Logger;
 import org.apache.mina.core.session.IoSession;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.nio.file.Path;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <b>about</b>
@@ -19,11 +17,23 @@ import java.util.List;
  * @author graha
  * @created 8/23/13 6:46 AM
  */
-public class Replicator extends Producer {
+public class Replicator extends Producer implements Runnable {
 
+	Logger log = Logger.getLogger(Replicator.class);
+
+	private ReplicaLedger ledger = new ReplicaLedger();
+	private BlockingQueue<String> replicas = new LinkedBlockingQueue<String>();
+	private String incomplete = "";
+
+	private String location = "/tmp";
 
 	public Replicator(){
 		super("localhost", 12122);
+	}
+
+	public Replicator(String location){
+		this();
+		this.setLocation(location);
 	}
 
 	public Replicator(String host, int port){
@@ -41,57 +51,89 @@ public class Replicator extends Producer {
 	@Override
 	public void messageReceived(IoSession session, Object message) throws Exception {
 		String text = UTFCoder.decode(message);
-		System.out.printf("Recieved : %s \n", text);
-		String[] operation = text.split(Constant.COLON);
-		if (operation.length>=2){
-			if(operation[0].equals("REQ_FILE")){
-				this.send(readFile(operation[1]));
+		synchronized(message){
+			String[] instructions = text.split(Constant.END_MSG);
+			int start=0, end=instructions.length;
+
+			if(!text.endsWith(Constant.END_MSG)){
+				end = instructions.length-1;
+				incomplete = incomplete + instructions[end];
+			}else if(incomplete.length()>0){
+				start=1;
+				replicas.add(incomplete+instructions[0]);
+				incomplete="";
 			}
-			if(operation[0].equals("REQ_CK")){
-				this.send(generateRollingChecksumAsString(readFile(operation[1])));
+
+			for(int i=start; i<end;i++)
+				replicas.add(instructions[i]);
+		}
+	}
+
+
+	public void run() {
+		while (true) {
+			String instruction = null;
+			try{
+				instruction = replicas.poll(1, TimeUnit.SECONDS);
+				if (instruction != null) {
+					Replica replica = ReplicaFactory.buildReplica(this.getLocation(), instruction);  //Auto digested
+					if (replica.getOperations().name().equals("REPLY_CREATE") ||
+							replica.getOperations().name().equals("REPLY_MODIFY")){
+						ledger.add(replica.getFile(), replica.getCheckpoint());
+						log.info(String.format("local %d, Remote %d\n",
+								replica.getCheckpoint(),ledger.get(replica.getFile())));
+
+					}
+				}
+			}catch(Exception e){
+				log.error(e.getMessage());
 			}
+			instruction = null; //Nullify
 		}
-
 
 	}
 
-	private String readFile( String file ) throws IOException {
-		System.out.println("######## Reading "+ file);
-		BufferedReader reader = new BufferedReader( new FileReader(file));
-		String         line = null;
-		StringBuilder  stringBuilder = new StringBuilder();
-		String         ls = System.getProperty("line.separator");
 
-		while( ( line = reader.readLine() ) != null ) {
-			stringBuilder.append( line );
-			stringBuilder.append( ls );
-		}
+	public String getLocation() {
+		return location;
+	}
 
-		return stringBuilder.toString();
+	public void setLocation(String location) {
+		this.location = location;
+	}
+
+	public ReplicaLedger getLedger() {
+		return ledger;
+	}
+
+	public void setLedger(ReplicaLedger ledger) {
+		this.ledger = ledger;
+	}
+
+	public BlockingQueue<String> getReplicas() {
+		return replicas;
+	}
+
+	public void setReplicas(BlockingQueue<String> replicas) {
+		this.replicas = replicas;
 	}
 
 
-	public List<Long> generateRollingChecksum(String file){
-
-		List<Long> checksums = new ArrayList<Long>();
-
-		int blockSize = Constant.BLOCK_SIZE;
-
-		RollingChecksum checksum = new RollingChecksum(file, blockSize);
-
-		int i=0;
-
-		while (checksum.next()) {
-			long c = checksum.weak();
-			checksums.add(c);
-			i++;
-		}
-		return checksums;
+	public void send(String location, String operation, Path path) {
+		String instruction = null;
+		Replica replica = ReplicaFactory.buildReplica(location);
+		replica.buildRequest(operation, path);
+		if (operation.equals("ENTRY_MODIFY"))
+			sendDelta(replica);
+		instruction = replica.toString();
+		this.send(instruction);
 	}
 
-	public String generateRollingChecksumAsString(String file){
-		List<Long> ck = generateRollingChecksum(file);
-		return Arrays.toString(ck.toArray());
+	public void sendDelta(Replica replica) {
+		//Locate delta
+		log.info(String.format("Source %d, Replica %d\n",
+				replica.getCheckpoint(), ledger.get(replica.getFile())));
+		replica.buildDelta(ledger.get(replica.getFile()));
 	}
 
 
