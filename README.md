@@ -1,5 +1,5 @@
 replican
-=+=======
+========
 
     Paxo based synchronous replicaiton management. Google Spanner based Key-Value Distributed Datastore. 
 
